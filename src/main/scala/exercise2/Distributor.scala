@@ -6,6 +6,8 @@ import chisel3.util._
 
 /** Receives an incoming atom and replicates it across num interfaces
  *
+ * Abstract base class allows for multiple implementations.
+ *
  * @param dtype Atom data type
  * @param num   Number of output interfaces
  */
@@ -17,6 +19,8 @@ abstract class Distributor[D <: Data](dtype : D, num : Int) extends Module {
 
 /** Distributor with registered data
  *
+ * Implementation which registers incoming data, and therefore has a one-cycle latency
+ * on data transmission.  Implementation should be permissive on all interfaces.
  */
 class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
   // Create your implementation of distributor here
@@ -29,5 +33,5 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("reg", "combo")
+  def getImpTypes : Seq[String] = Seq("reg")
 }
