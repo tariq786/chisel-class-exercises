@@ -4,6 +4,8 @@ import chiseltest._
 import chisel3._
 import org.scalatest.freespec.AnyFreeSpec
 
+import scala.util.Random
+
 class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
   "complete with full throughput" in {
     val ports = 4
@@ -72,6 +74,27 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
             }
           }
         }
+      }
+    }
+  }
+
+  // This is the same test from Exercise 1, but using your implementation of Distributor
+  // instead of the logic function you created for the first exercise.
+  "compute the square" in {
+    test(new Exercise2).withAnnotations(Seq(WriteVcdAnnotation)) {
+      c => {
+        c.io.dataIn.setSourceClock(c.clock)
+        c.io.dataOut.setSinkClock(c.clock)
+
+        val numberSeq = for (i <- 0 to 10) yield Random.nextInt(255)
+        val dataInSeq = for (x <- numberSeq) yield x.U
+        val dataOutSeq = for (x <- numberSeq) yield (x * x).U
+
+        fork {
+          c.io.dataIn.enqueueSeq(dataInSeq)
+        }.fork {
+          c.io.dataOut.expectDequeueSeq(dataOutSeq)
+        }.join()
       }
     }
   }

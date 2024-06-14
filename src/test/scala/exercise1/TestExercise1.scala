@@ -8,7 +8,7 @@ import scala.util.Random
 
 class TestExercise1 extends AnyFreeSpec with ChiselScalatestTester {
   "compute the square" in {
-    test(new Exercise4).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new Exercise1).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
         c.io.dataIn.setSourceClock(c.clock)
         c.io.dataOut.setSinkClock(c.clock)
