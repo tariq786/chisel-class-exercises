@@ -26,9 +26,24 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
   // Create your implementation of distributor here
 }
 
+/** Distributor with combinatorial datapath
+ *
+ * This combinatorial implementation does not register the data, and forces the source
+ * to hold the data by deasserting ready until all destinations have acknowledged.
+ *
+ * Note that this will create a dependency of in.ready on in.valid, thereby making this
+ * implementation demanding on the in port.
+ *
+ * Implementing ComboDistributor is optional, to test this implementation, add the
+ * string "combo" to getImpTypes, below.
+ */
+class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
+}
+
 object Distributor {
   def apply[D <: Data](imp : String, dtype : D, num : Int) : Distributor[D] = {
     imp match {
+      case "combo" => new ComboDistributor(dtype, num)
       case _ => new RegDistributor(dtype, num)
     }
   }

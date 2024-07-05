@@ -2,6 +2,7 @@ package exercise2
 
 import chiseltest._
 import chisel3._
+import org.scalatest.Ignore
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.Random
@@ -95,6 +96,38 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
         }.fork {
           c.io.dataOut.expectDequeueSeq(dataOutSeq)
         }.join()
+      }
+    }
+  }
+
+  /** Test the combinatorial implementation
+   *
+   * This test covers the same-cycle performance requirement of the combinatorial implementation.
+   *
+   * Implementing the combo distributor is optional, if you implement this, remove the "Ignore"
+   * pramga below to run the unit test.
+   */
+  "test combinatorial distributor" in {
+    assume(false, "This test is optional, comment this out to run the combo implementation")
+    val ports = 4
+    val readySeq = Seq.range(0, ports)
+
+    test(Distributor("combo", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      c => {
+        for (value <- 1 to 30) {
+          c.in.valid.poke(1)
+          c.in.bits.poke(value)
+          val selected = value % ports
+          c.dest.poke(1 << selected)
+          for (i <- 0 until ports) {
+            c.out(i).ready.poke(i == selected)
+          }
+          for (i <- 0 until ports) {
+            c.out(i).valid.expect(i == selected)
+          }
+          c.in.ready.expect(1)
+          c.clock.step()
+        }
       }
     }
   }
