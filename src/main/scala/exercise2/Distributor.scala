@@ -14,7 +14,21 @@ import chisel3.util._
 abstract class Distributor[D <: Data](dtype : D, num : Int) extends Module
 {
   val in = IO(Flipped(Decoupled(dtype)))      //new style chisel
-  val dest = IO(Input(UInt(num.W)))
+  val dest = IO(Input(UInt(num.W)))       //which output/s gets input data e.g., when num = 2, dest could be either of
+                                          // 0 or 00  (no output receives input), or
+                                          // 1 or 01 (only first output receives input), or
+                                          //2 or 10 (only second output receives input), or
+                                          //3 or 11 (both outputs receive input)
+                                          //when num = 3, dest could be either of
+                                          // 000
+                                         // 001
+                                         // 010
+                                         // 011
+                                         //100
+                                         //101
+                                        //110
+                                        //111
+
   val out = IO(Vec(num, Decoupled(dtype)))
 }
 
@@ -44,18 +58,20 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
   //       }
   //    in.ready = 1.U
 
-   val  iData = Reg(dtype)
-   val  idest = Reg(UInt(num.W))
+   val  iData     = Reg(dtype)
+   val  idest     = Reg(UInt(num.W))
    val  nextidest = Wire(UInt(num.W))
-   val  allready = Reverse(Cat(for(i<- 0 until num)  yield out(i).ready)) //yields seq of all ready signals
+   val  allready  = Reverse(Cat(for(i<- 0 until num)  yield out(i).ready)) //yields seq of all ready signals
 
-    iData := Mux(in.fire,in.bits,iData)
-    idest := Mux(in.fire, dest, nextidest)
-    in.ready := (idest === 0.U)
+   //val allready = Vec(num,Bool())
+
+    iData     := Mux(in.fire,in.bits,iData)
+    idest     := Mux(in.fire, dest, nextidest)
+    in.ready  := (idest === 0.U) || (nextidest === 0.U)
     for(i <- 0 until  num)
       {
         out(i).valid := idest(i)
-        out(i).bits := iData
+        out(i).bits  := iData
 
       }
       nextidest := ~allready & idest
@@ -92,4 +108,15 @@ object Distributor {
   }
 
   def getImpTypes : Seq[String] = Seq("reg")
+}
+
+
+object GenDistributor extends App {
+  val baseArguments = Array("--strip-debug-info", "--split-verilog", "--disable-all-randomization", "--lowering-options=disallowExpressionInliningInPorts,disallowLocalVariables")
+
+
+  //
+  //  ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
+  emitVerilog(new RegDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
+
 }

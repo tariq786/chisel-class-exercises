@@ -1,0 +1,52 @@
+FIRRTL version 1.2.0
+circuit RegDistributor :
+  module RegDistributor :
+    input clock : Clock
+    input reset : UInt<1>
+    input in : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<8>} @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 16:14]
+    input dest : UInt<4> @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 17:16]
+    output out : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<8>}[4] @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 32:15]
+
+    reg iData : UInt<8>, clock with :
+      reset => (UInt<1>("h0"), iData) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 61:24]
+    reg idest : UInt<4>, clock with :
+      reset => (UInt<1>("h0"), idest) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 62:24]
+    wire nextidest : UInt<4> @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 63:25]
+    node allready_lo = cat(out[2].ready, out[3].ready) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:32]
+    node allready_hi = cat(out[0].ready, out[1].ready) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:32]
+    node _allready_T = cat(allready_hi, allready_lo) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:32]
+    node _allready_T_1 = bits(_allready_T, 1, 0) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_2 = bits(_allready_T_1, 0, 0) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_3 = bits(_allready_T_1, 1, 1) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_4 = cat(_allready_T_2, _allready_T_3) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_5 = bits(_allready_T, 3, 2) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_6 = bits(_allready_T_5, 0, 0) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_7 = bits(_allready_T_5, 1, 1) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _allready_T_8 = cat(_allready_T_6, _allready_T_7) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node allready = cat(_allready_T_4, _allready_T_8) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 64:28]
+    node _iData_T = and(in.ready, in.valid) @[src/main/scala/chisel3/util/Decoupled.scala 52:35]
+    node _iData_T_1 = mux(_iData_T, in.bits, iData) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 68:21]
+    iData <= _iData_T_1 @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 68:15]
+    node _idest_T = and(in.ready, in.valid) @[src/main/scala/chisel3/util/Decoupled.scala 52:35]
+    node _idest_T_1 = mux(_idest_T, dest, nextidest) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 69:21]
+    idest <= _idest_T_1 @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 69:15]
+    node _in_ready_T = eq(idest, UInt<1>("h0")) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 70:25]
+    node _in_ready_T_1 = eq(nextidest, UInt<1>("h0")) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 70:48]
+    node _in_ready_T_2 = or(_in_ready_T, _in_ready_T_1) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 70:34]
+    in.ready <= _in_ready_T_2 @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 70:15]
+    node _out_0_valid_T = bits(idest, 0, 0) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:30]
+    out[0].valid <= _out_0_valid_T @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:22]
+    out[0].bits <= iData @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 74:22]
+    node _out_1_valid_T = bits(idest, 1, 1) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:30]
+    out[1].valid <= _out_1_valid_T @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:22]
+    out[1].bits <= iData @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 74:22]
+    node _out_2_valid_T = bits(idest, 2, 2) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:30]
+    out[2].valid <= _out_2_valid_T @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:22]
+    out[2].bits <= iData @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 74:22]
+    node _out_3_valid_T = bits(idest, 3, 3) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:30]
+    out[3].valid <= _out_3_valid_T @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 73:22]
+    out[3].bits <= iData @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 74:22]
+    node _nextidest_T = not(allready) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 77:20]
+    node _nextidest_T_1 = and(_nextidest_T, idest) @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 77:30]
+    nextidest <= _nextidest_T_1 @[home/remote/work/chisel-class-exercises/src/main/scala/exercise2/Distributor.scala 77:17]
+
