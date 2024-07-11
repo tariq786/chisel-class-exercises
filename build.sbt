@@ -5,7 +5,7 @@ ThisBuild / organization := "org.ghutchis"
 val chiselVersion = "3.6.0"
 
 lazy val root = (project in file(".")).settings(
-  name := "bigsur",
+  name := "Chisel Class Exercises",
   libraryDependencies ++= Seq(
     "edu.berkeley.cs" %% "chisel3" % chiselVersion,
     "edu.berkeley.cs" %% "chiseltest" % "0.6.2" % "test",
