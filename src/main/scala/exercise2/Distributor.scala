@@ -38,6 +38,7 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
  * string "combo" to getImpTypes, below.
  */
 class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
+  // Create your implementation of distributor here (optional)
 }
 
 object Distributor {
@@ -48,5 +49,5 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("reg")
+  def getImpTypes : Seq[String] = Seq("reg")  // Seq("reg", "combo")
 }

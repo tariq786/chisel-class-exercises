@@ -124,6 +124,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
           }
           for (i <- 0 until ports) {
             c.out(i).valid.expect(i == selected)
+            c.out(i).bits.expect(i)
           }
           c.in.ready.expect(1)
           c.clock.step()
