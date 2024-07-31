@@ -68,7 +68,7 @@ VCD file is named after the Chisel module which was tested (in this case, "Exerc
 ### [Exercise 1](src/main/scala/exercise1/Exercise1.html)
 
 
-### [Exercise 2](src/main/scala/exercise2/Exercise2.md)
+### [Exercise 2](src/main/scala/exercise2/Exercise2.html)
 
 
 ### [Exercise 3](src/main/scala/exercise3/Exercise3.md)
