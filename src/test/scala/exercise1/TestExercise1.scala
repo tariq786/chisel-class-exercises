@@ -1,12 +1,14 @@
 package exercise1
 
 import chisel3._
+import chisel3.util._
 import chiseltest._
+import chiseltest.formal.{BoundedCheck, Formal}
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.Random
 
-class TestExercise1 extends AnyFreeSpec with ChiselScalatestTester {
+class TestExercise1 extends AnyFreeSpec with ChiselScalatestTester  {
   "compute the square" in {
     test(new Exercise1).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
@@ -24,5 +26,25 @@ class TestExercise1 extends AnyFreeSpec with ChiselScalatestTester {
         }.join()
       }
     }
+  }
+}
+
+class FormalCheckExercise1 extends AnyFreeSpec with ChiselScalatestTester with Formal {
+  "check ex1 formal" in {
+    verify(new FormalBenchExercise1, Seq(BoundedCheck(10)))
+  }
+}
+
+class FormalBenchExercise1 extends Exercise1 {
+
+  val lastInput = Module(new Queue(UInt(8.W), 4))
+
+  lastInput.io.enq.valid := io.dataIn.fire
+  lastInput.io.enq.bits := io.dataIn.bits
+  lastInput.io.deq.ready := io.dataOut.fire
+  val expectedAnswer = lastInput.io.deq.bits * lastInput.io.deq.bits
+
+  when (io.dataOut.fire) {
+    assert(io.dataOut.bits === expectedAnswer)
   }
 }

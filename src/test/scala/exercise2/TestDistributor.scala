@@ -2,12 +2,13 @@ package exercise2
 
 import chiseltest._
 import chisel3._
+import chiseltest.formal._
 import org.scalatest.Ignore
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.Random
 
-class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
+class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal {
   "complete with full throughput" in {
     val ports = 4
     test(Distributor("reg", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
@@ -132,4 +133,19 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
       }
     }
   }
+
+  "prove distributor properties" in {
+    verify(new CheckDistributor(UInt(8.W), 4), Seq(BoundedCheck(5)))
+  }
 }
+
+class CheckDistributor[D <: Data](dtype : D, num : Int) extends RegDistributor(dtype, num) {
+  val out_valid = VecInit(out.map(_.valid)).asUInt
+  when (past(in.fire)) {
+    assert(out_valid === past(dest))
+    for (i <- 0 until num) {
+      assert(out(i).bits === past(in.bits))
+    }
+  }
+}
+

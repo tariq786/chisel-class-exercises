@@ -27,6 +27,7 @@ class Multiplier(width: Int) extends Module {
   val busy = RegInit(init=0.B)
   val done = RegInit(init=0.B)
 
+  val busy_fc = busy | (done & !io.z.ready)
   io.b.ready := !busy
   io.a.ready := 0.B
   io.z.valid := done
@@ -36,7 +37,7 @@ class Multiplier(width: Int) extends Module {
   when (done & io.z.ready) {
     done := 0.B
   }
-  when (!busy & io.b.valid) {
+  when (!busy_fc & io.b.valid) {
     z_hold := 0.U
     nxtShift := PriorityEncoder(io.b.bits)
     b_hold := io.b.bits >> nxtShift
