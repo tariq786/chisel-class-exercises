@@ -108,7 +108,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
    * pramga below to run the unit test.
    */
   "test combinatorial distributor" in {
-    assume(false, "This test is optional, comment this out to run the combo implementation")
+    assume(true, "This test is optional, comment this out to run the combo implementation")
     val ports = 4
     val readySeq = Seq.range(0, ports)
 
