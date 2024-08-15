@@ -164,6 +164,7 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
 
 } //end of class
 
+
 object Distributor {
   def apply[D <: Data](imp : String, dtype : D, num : Int) : Distributor[D] = {
     imp match {
@@ -171,6 +172,7 @@ object Distributor {
       case _ => new RegDistributor(dtype, num)
     }
   }
+
 
   def getImpTypes : Seq[String] = Seq("combo")
 }
@@ -186,3 +188,7 @@ object GenDistributor extends App
   emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
 
 }
+
+  def getImpTypes : Seq[String] = Seq("reg")  // Seq("reg", "combo")
+}
+

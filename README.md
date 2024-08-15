@@ -65,10 +65,10 @@ Any Chisel unit test can be configured to produce a VCD file by adding the "Writ
 to the test.  If this is added, you will see a .vcd file created in the directory.  The
 VCD file is named after the Chisel module which was tested (in this case, "Exercise1.vcd").
 
-### [Exercise 1](src/main/scala/exercise1/Exercise1.md)
+### [Exercise 1](src/main/scala/exercise1/Exercise1.html)
 
 
-### [Exercise 2](src/main/scala/exercise2/Exercise2.md)
+### [Exercise 2](src/main/scala/exercise2/Exercise2.html)
 
 
 ### [Exercise 3](src/main/scala/exercise3/Exercise3.md)
