@@ -145,17 +145,16 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
    {
         for (i <- 0 until num)
         {
-          when(dest(i))
+          when(dest(i))  //if ith bit position/s in dest = 1, then that port/s is/are chosen
           {
             out(i).valid := true.B
             out(i).bits := in.bits
-            when(out(i).ready)
-            {
-              allreadyVec(i) := out(i).ready
-            }
+          }
+          when(out(i).ready)
+          {
+            allreadyVec(i) := out(i).ready
           }
         }
-
     }
   when(allready === dest)
   {

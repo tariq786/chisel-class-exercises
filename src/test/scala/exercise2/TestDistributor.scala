@@ -109,7 +109,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
    */
   "test combinatorial distributor" in {
     assume(true, "This test is optional, comment this out to run the combo implementation")
-    val ports = 4
+    val ports = 2
     val readySeq = Seq.range(0, ports)
 
     test(Distributor("combo", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
@@ -118,15 +118,26 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
           c.in.valid.poke(1)
           c.in.bits.poke(value)
           val selected = value % ports
+          println(s" value =  ${value}")
+          println(s" selected =  ${selected}")
           c.dest.poke(1 << selected)
           for (i <- 0 until ports) {
             c.out(i).ready.poke(i == selected)
           }
           for (i <- 0 until ports) {
+            println(s" c.dest =  ${c.dest.peek().litValue}")
+            println(s" c.out(${i}).valid =  ${c.out(i).valid.peek().litValue}")
             c.out(i).valid.expect(i == selected)
+            println(s" c.out(${i}).bits =  ${c.out(i).bits.peek().litValue}")
+            if(i==selected) {
+              println(s" c.out(${i}).bits =  ${c.out(i).bits.peek().litValue}")
+              c.out(i).bits.expect(value)
+            }
           }
           c.in.ready.expect(1)
           c.clock.step()
+          println(s"****")
+          println(s"")
         }
       }
     }
