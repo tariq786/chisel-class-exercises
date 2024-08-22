@@ -47,6 +47,84 @@ ready at the same time.</p>
 <p>The second and third transactions are sent only to one of the two output ports, demonstrating how the
 dest control port selectively replicates data.  The non-selected interface ports do not receive valid
 signals, and therefore should ignore their *bits* input ports.</p>
+
+<h2>Optional Exercises</h2>
+
+<p>These optional exercises provide additional implentations of a Distributor with identical
+interfaces but different performance characteristics.  Implementing these are optional, and
+they are not used in the final project, but will enhance your understanding of Chisel and
+component library design.</p>
+
+<h3>Combinatorial Distributor</h3>
+
+<p>The combinatorial distributor trades off having <i>demanding</i> interfaces instead of helpful
+for a zero-cycle latency.  This is useful for certain latency-critical applications, or those
+where custom buffering is needed, and therefore the user does not desire having an additional
+buffer and latency built into the distributor.</p>
+
+<p>The waveform below shows the timing changes for the combo implementation.  Note in
+particular the change in the in.ready signal, which is now low by default (as it has a
+dependency on the out.ready signals).</p>
+
+<script type="WaveDrom">
+{ signal: [
+
+  { name: "in.valid",   wave: '01..01010'},
+  { name: "in.ready",   wave: '0..101010'},
+  { name: "in.bits",    wave: 'x4..x4x4x', data:['foo', 'bar', 'yug']},
+  { name: "in.dest",    wave: 'x4..x4x4x', data:['11', '01', '10']},
+  {},
+  { name : "out(0).valid", wave: '010..10..'},
+  { name : "out(0).ready", wave: '0101.....'},
+  { name : "out(0).bits",  wave: 'x5x..5x..', data:['foo', 'bar']},
+  {},
+  { name : "out(1).valid", wave: '01..0..10'},
+  { name : "out(1).ready", wave: '0..101..0'},
+  { name : "out(1).bits",  wave: 'x5..x..5x', data:['foo', 'yug']},
+  {},
+
+],
+  config: {
+  hscale : 1
+  }
+
+  }
+</script>
+
+<h3>Fully-Buffered Distributor</h3>
+
+<p>The fully buffered distributor has an output buffer for each destination,
+rather than a single shared buffer for all destinations.  This allows it to
+accept transactions for other destinations even when one of its outputs is
+persistently flow controlled.</p>
+
+<p>The full distributor is <i>helpful</i> on all of its output interfaces, but
+must be <i>demanding</i> on its input interface, as it needs to know which
+destinations have been requested before it can assert ready.</p>
+
+<script type="WaveDrom">
+{ signal: [
+
+  //{ name: "in_valid", wave: '010101010'},
+  //{ name: "in_ready", wave: '1.0101010'},
+  { name: "in_valid", wave: '01......0....'},
+  { name: "in_ready", wave: '01..0..10..1.'},
+  { name: "in_bits",  wave: 'x4444...x....', data: ['foo', 'bar', 'yug','tok']},
+  { name: "dest",     wave: 'x4444...x....', data: ['11', '01', '10','11']},
+  {},
+  { name: "out1_valid", wave: '0.1010..1.0..'},
+  { name: "out1_ready", wave: '0.1010...10..'},
+  { name: "out1_bits",  wave: 'x.5x5x..5.x..', data: ['foo', 'bar','tok']},
+  {},
+  { name: "out2_valid", wave: '0.1..0.1....0'},
+  { name: "out2_ready", wave: '0..101..0..10'},
+  { name: "out2_bits",  wave: 'x..5x..55...x', data: ['foo', 'yug','tok']},
+  {},
+  //{name:"test_notch",wave:'1111111111111'}
+
+]}
+</script>
+
 </body>
 </html>
 
