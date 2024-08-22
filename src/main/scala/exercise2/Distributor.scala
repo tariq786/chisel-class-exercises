@@ -109,7 +109,7 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
 //         }
 //      in.ready := 1.U
 
-}
+} //end of  RegDistributor class
 
 
 //to select between multiple implementations
@@ -127,8 +127,6 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
 class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
 {
 
- val s0 :: s1 :: Nil = Enum(2)
- val state = RegInit(init = s0)
 
   val allreadyVec = Wire(Vec(num,Bool()))
   val allready = allreadyVec.asUInt
@@ -156,22 +154,72 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
           }
         }
     }
-  when(allready === dest)
+  when( (allready === dest) && (dest > 0))
   {
     in.ready := 1.B
   }
 
-} //end of class
+} //end of ComboDistributor class
+
+
+/* FullDistributor can accept data for an output port/s as long as it/they is/are free. It has storage for
+  every output port. Using composition to implement FullDistributor using FIFO and ComboDistributor
+ */
+class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
+{
+/*
+
+  //Registers to save in.bits for every port
+  val regs = Reg(Vec(num,dtype))
+  val idest= RegInit(UInt(num.W),0.U)
+  val nextidest = Wire(UInt(num.W))
+
+
+  val queue = Module(new Queue(dtype, 1))
+
+  //connect input to the Queue
+  queue.io.enq <> in
+ idest     := Mux(in.fire, dest, nextidest)
+  //instantiate Combo Distributor
+  val combo = Module(new ComboDistributor(dtype,num))
+  //connect output of Queue to Combo Distributor
+  combo.in <> queue.io.deq
+  combo.dest <> dest
+
+  for(i <- 0 until(num)) {
+    when(idest(i)) {
+      regs(i) := combo.in
+      out(i).valid := idest(i)
+      nextidest(i) := ~idest(i)
+    }
+    when(combo.out(i).ready) {
+      // port i is ready to accept new data
+      when(combo.allready === combo.dest) { //if new dest value is different from
+        {
+          queue.io.deq.ready := true.B //release the old entry
+          queue.io.enq.ready := true.B
+          nextidest(i) := combo.dest(i)
+        }
+      }
+    }
+  }
+*/
+
+} //end of FullDistributor class
+
+
+
 
 object Distributor {
   def apply[D <: Data](imp : String, dtype : D, num : Int) : Distributor[D] = {
     imp match {
       case "combo" => new ComboDistributor(dtype, num)
+      case "full" => new FullDistributor(dtype, num)
       case _ => new RegDistributor(dtype, num)
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("combo")
+  def getImpTypes : Seq[String] = Seq("full")
 }
 
 
@@ -182,6 +230,6 @@ object GenDistributor extends App
 
   //
   //  ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
-  emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
+  emitVerilog(new FullDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
 
 }

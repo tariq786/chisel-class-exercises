@@ -4,6 +4,7 @@ import chiseltest._
 import chisel3._
 import org.scalatest.Ignore
 import org.scalatest.freespec.AnyFreeSpec
+import scala.math.pow
 
 import scala.util.Random
 
@@ -109,28 +110,48 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester {
    */
   "test combinatorial distributor" in {
     assume(true, "This test is optional, comment this out to run the combo implementation")
-    val ports = 4
-    val readySeq = Seq.range(0, ports)
+    val ports = 4 //changed for debugging from 4 to 2
+    // val readySeq = Seq.range(0, ports)  //NOT USED
 
     test(Distributor("combo", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
-        for (value <- 1 to 30) {
+        for (value <- 1 to 30) { //changed for debugging from 30 to 8
           c.in.valid.poke(1)
           c.in.bits.poke(value)
-          val selected = value % ports
-          c.dest.poke(1 << selected)
-          for (i <- 0 until ports) {
-            c.out(i).ready.poke(i == selected)
-          }
-          for (i <- 0 until ports) {
-            c.out(i).valid.expect(i == selected)
-            if(i==selected) {
-             c.out(i).bits.expect(value)
+          if (value % pow(2, ports).toInt != 0)
+          {
+            val selected = (value % pow(2, ports).toInt) //changed to have multiple output ports
+            println(s" selected =  ${selected}")
+            c.dest.poke(selected)
+            for (i <- 0 until ports) {
+              if (((selected >> i) & 1) == 1) {
+                c.out(i).ready.poke(1)
+                println(s"c.out(${i}).ready =  ${c.out(i).ready.peek().litValue}")
+              }
             }
-          }
+            for (i <- 0 until ports) {
+              //          println(s" c.dest =  ${c.dest.peek().litValue}")
+              //          println(s" c.out(${i}).bits =  ${c.out(i).bits.peek().litValue}")
+              if (((selected >> i) & 1) == 1) //if multiple output ports are selected, then we need to check them one by one
+              {
+                println(s" c.out(${i}).bits =  ${c.out(i).bits.peek().litValue}")
+                c.out(i).bits.expect(value)
+                println(s" c.out(${i}).valid =  ${c.out(i).valid.peek().litValue}")
+                c.out(i).valid.expect(true)
+              }
+            }
           c.in.ready.expect(1)
           c.clock.step()
-       }
+          for (i <- 0 until ports) {
+            if (((selected >> i) & 1) == 1) //if multiple output ports are selected, then we need to check them one by one
+            {
+              c.out(i).ready.poke(0)
+            }
+          }
+        }
+          println(s"****")
+          println(s"")
+        }
       }
     }
   }
