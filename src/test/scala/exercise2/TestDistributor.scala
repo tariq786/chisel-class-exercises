@@ -80,6 +80,44 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
     }
   }
 
+  "check nonblocking property" in {
+    val ports = 2
+    test(Distributor("full", UInt(8.W), 2)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      c => {
+        // Cycle 1
+        c.in.valid.poke(1)
+        c.dest.poke(1)
+        c.in.bits.poke(100)
+        c.in.ready.expect(1)
+        c.clock.step()
+
+        // Cycle 2
+        // check output is asserted
+        c.out(0).valid.expect(1)
+        c.out(0).bits.expect(100)
+
+        c.in.bits.poke(200)
+        c.in.ready.expect(0)
+        c.dest.poke(2)
+        c.in.ready.expect(1)
+
+        // Cycle 3
+        c.clock.step(1)
+        c.out(1).valid.expect(1)
+        c.out(1).bits.expect(200)
+
+        c.in.ready.expect(0)
+
+        c.out(0).ready.poke(1)
+        c.out(1).ready.poke(1)
+        c.clock.step()
+        c.in.bits.poke(50)
+        c.dest.poke(3)
+        c.in.ready.expect(1)
+      }
+    }
+  }
+
   // This is the same test from Exercise 1, but using your implementation of Distributor
   // instead of the logic function you created for the first exercise.
   "compute the square" in {
@@ -109,12 +147,13 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
    * pramga below to run the unit test.
    */
   "test combinatorial distributor" in {
-    assume(false, "This test is optional, comment this out to run the combo implementation")
+    //assume(false, "This test is optional, comment this out to run the combo implementation")
     val ports = 4
     val readySeq = Seq.range(0, ports)
 
     test(Distributor("combo", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
+        c.clock.step()
         for (value <- 1 to 30) {
           c.in.valid.poke(1)
           c.in.bits.poke(value)
@@ -125,7 +164,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
           }
           for (i <- 0 until ports) {
             c.out(i).valid.expect(i == selected)
-            c.out(i).bits.expect(i)
+            c.out(i).bits.expect(value)
           }
           c.in.ready.expect(1)
           c.clock.step()
@@ -141,10 +180,23 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
 
 class CheckDistributor[D <: Data](dtype : D, num : Int) extends RegDistributor(dtype, num) {
   val out_valid = VecInit(out.map(_.valid)).asUInt
+  val out_ready = VecInit(out.map(_.ready)).asUInt
+
+  assume(dest =/= 0.U)
+  when (in.valid & !in.ready) {
+    assume(stable(in.bits))
+  }
   when (past(in.fire)) {
     assert(out_valid === past(dest))
     for (i <- 0 until num) {
       assert(out(i).bits === past(in.bits))
+    }
+  }
+  for (i <- 0 until num) {
+    when(past(out(i).valid & !out(i).ready)) {
+      assert(out(i).valid)
+      //assert(out(0).bits === past(out(0).bits))
+      assert(stable(out(i).bits))
     }
   }
 }
