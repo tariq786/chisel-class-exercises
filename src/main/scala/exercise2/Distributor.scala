@@ -74,17 +74,22 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
    val  nextidest = Wire(UInt(num.W))
    //val  allready  = Reverse(Cat(for(i<- 0 until num)  yield out(i).ready)) //yields seq of all ready signals
 
-   val allreadyVec = Wire(Vec(num,Bool()))
+   val allreadyVec = Reg(Vec(num,Bool()))
+    allreadyVec := VecInit(Seq.fill(num)(false.B))
    val allready = allreadyVec.asUInt
 
     iData     := Mux(in.fire,in.bits,iData)
     idest     := Mux(in.fire, dest, nextidest)
-    in.ready  := (idest === 0.U) || (nextidest === 0.U)
+
+  //  in.ready  := (idest === 0.U) || (nextidest === 0.U)
+      in.ready := (allready === dest)
     for(i <- 0 until  num)
       {
         out(i).valid := idest(i)
         out(i).bits  := iData
-        allreadyVec(i)  := out(i).ready
+        when(out(i).ready) {
+          allreadyVec(i) := out(i).ready
+        }
 
       }
       nextidest := ~allready & idest
@@ -167,7 +172,7 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
  */
 class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
 {
-/*
+
 
   //Registers to save in.bits for every port
   val regs = Reg(Vec(num,dtype))
@@ -203,7 +208,7 @@ class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype
       }
     }
   }
-*/
+
 
 } //end of FullDistributor class
 
@@ -219,7 +224,7 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("full")
+  def getImpTypes : Seq[String] = Seq("reg")
 }
 
 
