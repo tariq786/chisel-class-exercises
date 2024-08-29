@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.1.0/skins/default.js" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/3.1.0/wavedrom.min.js" type="text/javascript"></script>
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body onload="WaveDrom.ProcessAll()">
+
+<h1>Exercise 2</h1>
+
+<p>The objective of exercise 2 is to create your first library component.  This block is called Decoupled,
+and it accepts data from a single input interface and replicates the data across multiple output interfaces,
+using the input port *dest* to control which interfaces receive the replicated data.</p>
+
+<p>The waveform below shows three sample transactions for a two-output distributor implementation.
+    <script type="WaveDrom">
+{ signal: [
+
+  { name: "in.valid",   wave: '0101..01.0'},
+  { name: "in.ready",   wave: '1.0..10.10'},
+  { name: "in.bits",    wave: 'x4x4..x4.x', data:['foo', 'bar', 'yug']},
+  { name: "in.dest",    wave: 'x4x4..x4.x', data:['11', '01', '10']},
+  {},
+  { name : "out(0).valid", wave: '0.10..10..'},
+  { name : "out(0).ready", wave: '0.101.....'},
+  { name : "out(0).bits",  wave: 'x.5x..5x..', data:['foo', 'bar']},
+  {},
+  { name : "out(1).valid", wave: '0.1..0..10'},
+  { name : "out(1).ready", wave: '0...101..0'},
+  { name : "out(1).bits",  wave: 'x.5..x..5x', data:['foo', 'yug']},
+  {},
+
+],
+  config: {
+  hscale : 1
+  }
+
+  }
+</script>
+
+The first transaction is sent to both output ports, each of which complete the request at different times.
+Your distributor implementation should be permissive, so should not require that output ports assert
+ready at the same time.</p>
+
+<p>The second and third transactions are sent only to one of the two output ports, demonstrating how the
+dest control port selectively replicates data.  The non-selected interface ports do not receive valid
+signals, and therefore should ignore their *bits* input ports.</p>
+</body>
+</html>
+
