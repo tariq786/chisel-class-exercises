@@ -61,6 +61,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
     val ports = 4
     val readySeq = Seq.range(0, ports)
     for (imp <- Distributor.getImpTypes) {
+      println(f"Testing ${imp} Implementation")
       test(Distributor(imp, UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           for (value <- 1 to 30) {
@@ -68,9 +69,15 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
             c.in.bits.poke(value)
             c.dest.poke(0xF)
             for (r <- readySeq) {
+              c.out(r).ready.poke(1)
+              while (!c.out(r).valid.peekBoolean())
+                c.clock.step()
               for (i <- 0 until ports) {
-                if (r == i) c.out(i).ready.poke(1)
-                else c.out(i).ready.poke(0)
+                if (i < r)
+                  c.out(i).valid.expect(0.B)
+                if (r == i) {
+                  c.out(i).valid.expect(1.B)
+                } else c.out(i).ready.poke(0)
               }
               c.clock.step()
             }
