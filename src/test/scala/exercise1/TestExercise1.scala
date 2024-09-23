@@ -14,8 +14,9 @@ class TestExercise1 extends AnyFreeSpec with ChiselScalatestTester  {
       c => {
         c.io.dataIn.setSourceClock(c.clock)
         c.io.dataOut.setSinkClock(c.clock)
+        val numItems = 50
 
-        val numberSeq = for (i <- 0 to 10) yield Random.nextInt(255)
+        val numberSeq = for (i <- 0 until numItems) yield Random.nextInt(255)
         val dataInSeq = for (x <- numberSeq) yield x.U
         val dataOutSeq = for (x <- numberSeq) yield (x*x).U
 
