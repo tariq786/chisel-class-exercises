@@ -1,9 +1,9 @@
+*.gtkw
+*.json
+*.fir
+*.v
 project/
 target/
 test_run_dir/
 .idea
 .bsp/
-*.gtkw
-*.json
-*.fir
-*.v

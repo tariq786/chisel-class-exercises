@@ -3,7 +3,7 @@ package exercise2
 import chisel3._
 import chisel3.util.ImplicitConversions.intToUInt
 import chisel3.util._
-
+import chisel3.dontTouch
 /** Receives an incoming atom and replicates it across num interfaces
  *
  * Abstract base class allows for multiple implementations.
@@ -25,12 +25,12 @@ import chisel3.util._
 abstract class Distributor[D <: Data](dtype : D, num : Int) extends Module
 {
   val in = IO(Flipped(Decoupled(dtype)))      //new style chisel
-  val dest = IO(Input(UInt(num.W)))       //which output/s gets input data e.g., when num = 2, "dest" could be either of
+  val dest = IO(Input(UInt(num.W)))       //which output/s gets input data e.g., when num = 2 (means there are 2 ports), but "dest" could be either of
                                           // 0 or 00  (no output receives input), or
                                           // 1 or 01 (only first output receives input), or
                                           //2 or 10 (only second output receives input), or
                                           //3 or 11 (both outputs receive input)
-                                          //when num = 3, "dest" could be either of
+                                          //when num = 3 (3 ports), but "dest" could be either of
                                           // 000
                                          // 001
                                          // 010
@@ -135,14 +135,17 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
 
   val allreadyVec = Wire(Vec(num,Bool()))
   val allready = allreadyVec.asUInt
-  //Registers to keep track of what destinations have been fulfilled
-  val iDest = RegInit(VecInit(Seq.fill(num)(false.B)))
+  //Registers to keep track of what destination ports have been fulfilled
+   val iDest = dontTouch(RegInit(VecInit(Seq.fill(num)(false.B))))
+
+  //iDest     := Mux(in.fire, dest, iDest)
 
   //Defaults
   for (i <- 0 until num) {
     out(i).valid := false.B
     out(i).bits := 0.U
     allreadyVec(i) := 0.B
+    iDest(i) := false.B
   }
   in.ready := 0.B
 
@@ -152,19 +155,24 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
      {
        when(dest(i)) //if ith bit position/s in dest = 1, then that port/s is/are chosen
        {
-         iDest(i) := true.B
+//         iDest(i) := true.B
          out(i).valid := true.B
          out(i).bits := in.bits
 
          when(out(i).ready) {
+           iDest(i) := true.B  //this is where it should be, meaning ith dest is now done.
            allreadyVec(i) := out(i).ready
          }
-         when((allready === dest) && (dest > 0)) {
-           in.ready := 1.B
-         }
        }
+     } //end of for loop
+
+     when(   (allready === dest) /*&& (dest > 0)*/ ) {
+       in.ready := 1.B
+
      }
-   }
+
+
+   } //end of when(in.valid)
 } //end of ComboDistributor class
 
 
@@ -178,11 +186,15 @@ class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype
   //Registers to save in.bits for every port
   //val regs = Reg(Vec(num,dtype))
 
+  val allreadyVec = Reg(Vec(num,Bool()))
+  allreadyVec := VecInit(Seq.fill(num)(false.B))
+  val allready = allreadyVec.asUInt
+
   val idest= RegInit(UInt(num.W),0.U)
  // val nextidest = Wire(UInt(num.W))
 
 
-  //one-entry FIFO for every output port
+  //one-entry deep FIFO for every output port
   val queue = for(i <- 0 until  num) yield Module(new Queue(dtype, 1))
 
   idest     := Mux(in.fire, dest, idest)
@@ -209,18 +221,22 @@ class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype
   }
 
   for(i <- 0 until  num)
-    {
-      when(combo.out(i).valid) //enqueue and then deque after 1-cycle of latency all those destinations that are done
+    {                           //permissive so valid is asserted irrespective of ready
+      when(out(i).valid) //enqueue and then deque after 1-cycle of latency all those destinations that are done
       {
-          combo.out(i) <> queue(i).io.enq
-          queue(i).io.deq <> out(i)
+        when(out(i).ready)
+        {
+          //combo.out(i) <> queue(i).io.enq //do we need this when there is similar statement in the default???
+          //queue(i).io.deq <> out(i)       //do we need this when there is similar statement in the default???
 
           //update the allreadyVec on the next clock cycle
-          when( (dest(i) === out(i).ready)  ) { //when new destination is presented at the input that matches allready or less than
+          allreadyVec(i) := true.B
+          idest := ~allready & idest
+          when(dest <= (~idest).asUInt) {
+            allreadyVec(i) := false.B
             in.ready := true.B
-            idest := dest
-
           }
+        }
       }
     }
 //  }
@@ -240,7 +256,7 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("full")
+  def getImpTypes : Seq[String] = Seq("combo")
 }
 
 
@@ -251,6 +267,6 @@ object GenDistributor extends App
 
   //
   //  ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
-  emitVerilog(new FullDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
+  emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
 
 }
