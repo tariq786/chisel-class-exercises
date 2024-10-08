@@ -74,15 +74,16 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
    val  nextidest = Wire(UInt(num.W))
    //val  allready  = Reverse(Cat(for(i<- 0 until num)  yield out(i).ready)) //yields seq of all ready signals
 
-   val allreadyVec = Reg(Vec(num,Bool()))
+   val allreadyVec = Wire(Vec(num,Bool())) //cannot be a register because it prevents valid from being low at the right time
     allreadyVec := VecInit(Seq.fill(num)(false.B))
    val allready = allreadyVec.asUInt
 
     iData     := Mux(in.fire,in.bits,iData)
     idest     := Mux(in.fire, dest, nextidest)
 
-  //  in.ready  := (idest === 0.U) || (nextidest === 0.U)
-      in.ready := (allready === dest)
+   in.ready  := (idest === 0.U) || (nextidest === 0.U)
+   //   in.ready := (allready === dest)
+
     for(i <- 0 until  num)
       {
         out(i).valid := idest(i)
@@ -93,6 +94,7 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
 
       }
       nextidest := ~allready & idest
+
 
 
 
@@ -131,21 +133,14 @@ class RegDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype,
  */
 class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
 {
-
-
-  val allreadyVec = Wire(Vec(num,Bool()))
-  val allready = allreadyVec.asUInt
   //Registers to keep track of what destination ports have been fulfilled
-   val iDest = dontTouch(RegInit(VecInit(Seq.fill(num)(false.B))))
-
-  //iDest     := Mux(in.fire, dest, iDest)
+   val iDest = RegInit(VecInit(Seq.fill(num)(false.B)))
 
   //Defaults
   for (i <- 0 until num) {
     out(i).valid := false.B
     out(i).bits := 0.U
-    allreadyVec(i) := 0.B
-    iDest(i) := false.B
+   //iDest(i) := false.B   //throws tricky error if not commented out (ask Guy about this)
   }
   in.ready := 0.B
 
@@ -155,20 +150,28 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
      {
        when(dest(i)) //if ith bit position/s in dest = 1, then that port/s is/are chosen
        {
-//         iDest(i) := true.B
          out(i).valid := true.B
          out(i).bits := in.bits
 
          when(out(i).ready) {
+//           printf(p"Value of port that is completed is = $i \n")
            iDest(i) := true.B  //this is where it should be, meaning ith dest is now done.
-           allreadyVec(i) := out(i).ready
-         }
+//           printf(p"Value of iDest(${i}) = ${iDest(i)} at port index  = $i \n")
+           }
        }
      } //end of for loop
 
-     when(   (allready === dest) /*&& (dest > 0)*/ ) {
+     for(i <- 0 until(num)) {
+       when(iDest(i)) {
+//         printf(p"Value of iDest(${i}) = ${iDest(i)} at port index  = $i \n")
+         out(i).valid := false.B
+             }
+     }
+     when(   (iDest.asUInt === dest) /*&& (dest > 0)*/ ) {
        in.ready := 1.B
-
+       for(i <- 0 until(num)) {
+         iDest(i) := false.B
+       }
      }
 
 
@@ -181,66 +184,19 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
  */
 class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
 {
-
-
-  //Registers to save in.bits for every port
-  //val regs = Reg(Vec(num,dtype))
-
-  val allreadyVec = Reg(Vec(num,Bool()))
-  allreadyVec := VecInit(Seq.fill(num)(false.B))
-  val allready = allreadyVec.asUInt
-
-  val idest= RegInit(UInt(num.W),0.U)
- // val nextidest = Wire(UInt(num.W))
-
+  //instantiate Combo Distributor
+  val combo = Module(new ComboDistributor(dtype,num))
+  combo.in  <> in
+  combo.dest <> dest
 
   //one-entry deep FIFO for every output port
   val queue = for(i <- 0 until  num) yield Module(new Queue(dtype, 1))
 
-  idest     := Mux(in.fire, dest, idest)
-
-  //instantiate Combo Distributor
-  val combo = Module(new ComboDistributor(dtype,num))
-//  //connect output of Queue to Combo Distributor
-//  combo.in <> queue.io.deq
-
-  combo.in  <> in
-  combo.dest <> dest
-
-
-  //defaults
-  for(i <- 0 until  num)
-  {
-    queue(i).io.enq.valid :=  0.B
-    queue(i).io.enq.bits :=  0.U
-    out(i).valid := false.B
-    out(i).bits := 0.U
-
-    combo.out(i) <> queue(i).io.enq
-    out(i) <> queue(i).io.deq
+ //connect output of Combo Distributor to every FIFO
+  for(i <- 0 until  num) {
+   combo.out(i) <> queue(i).io.enq
+   queue(i).io.deq <> out(i)
   }
-
-  for(i <- 0 until  num)
-    {                           //permissive so valid is asserted irrespective of ready
-      when(out(i).valid) //enqueue and then deque after 1-cycle of latency all those destinations that are done
-      {
-        when(out(i).ready)
-        {
-          //combo.out(i) <> queue(i).io.enq //do we need this when there is similar statement in the default???
-          //queue(i).io.deq <> out(i)       //do we need this when there is similar statement in the default???
-
-          //update the allreadyVec on the next clock cycle
-          allreadyVec(i) := true.B
-          idest := ~allready & idest
-          when(dest <= (~idest).asUInt) {
-            allreadyVec(i) := false.B
-            in.ready := true.B
-          }
-        }
-      }
-    }
-//  }
-
 
 } //end of FullDistributor class
 
@@ -256,7 +212,7 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("combo")
+  def getImpTypes : Seq[String] = Seq("full")
 }
 
 

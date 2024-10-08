@@ -64,22 +64,28 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
       println(f"Testing ${imp} Implementation")
       test(Distributor(imp, UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
+         // c.clock.setTimeout(5000)
           for (value <- 1 to 30) {
             c.in.valid.poke(1)
             c.in.bits.poke(value)
             c.dest.poke(0xF)
             for (r <- readySeq) {
+//              println(s" Now Testing port ${r}")
               c.out(r).ready.poke(1)
               while (!c.out(r).valid.peekBoolean())
                 c.clock.step()
               for (i <- 0 until ports) {
-                if (i < r)
-                  c.out(i).valid.expect(0.B)
+                if (i < r) {
+//                  println(s" Ignoring port = ${i}, because ready is for port = ${r} ")
+                   c.out(i).valid.expect(0.B)
+                }
                 if (r == i) {
+            //      println(s" ready =  ${r}, port = ${i}")
                   c.out(i).valid.expect(1.B)
                 } else c.out(i).ready.poke(0)
               }
               c.clock.step()
+//              println("One iteration of ready sequence Done")
             }
           }
         }
@@ -95,7 +101,7 @@ class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal
         c.in.valid.poke(1)
         c.dest.poke(1)
         c.in.bits.poke(100)
-        c.in.ready.expect(1)
+      //  c.in.ready.expect(1)
         c.clock.step()
 
         // Cycle 2

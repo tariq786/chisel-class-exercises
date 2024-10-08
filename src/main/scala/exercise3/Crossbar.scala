@@ -14,10 +14,20 @@ class DistributorCrossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) exten
   // Create your own implementation of a crossbar using the RegDistributor implementation from
   // exercise2 and the RRArbiter Chisel component
 
+  //create numOut number of RRArbiters where each has numIn number of inputs
   val arb = for (s <- 0 until numOut) yield Module(new RRArbiter(dtype, numIn))
 
+  for(i <-0 until(numOut)) {
+    for(j <-0 until(numIn)) {
+      arb(i).io.in(j) <> in(j)
+    }
+  }
 
-  //instantiate RegDistributor for every input, note "numOut" is the number of output interfaces NOT numIn
+  for(i <-0 until(numOut)) {
+    arb(i).io.out <> out(i)
+  }
+
+  /*//instantiate RegDistributor for every input, note "numOut" is the number of output interfaces NOT numIn
   val regD = for (i <- 0 until numIn) yield Module (new RegDistributor[D](dtype,numOut))
 
   //connect RegDistributor to every input
@@ -37,7 +47,7 @@ class DistributorCrossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) exten
   for(i <-0 until(numOut)) {
   arb(i).io.out <> out(i)
   }
-
+*/
 
 
 }//end of class DistributorCrossbar
