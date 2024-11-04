@@ -1,3 +1,4 @@
+*.anno*
 *.gtkw
 *.json
 *.fir

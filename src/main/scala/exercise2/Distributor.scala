@@ -1,8 +1,7 @@
 package exercise2
-
 import chisel3._
 import chisel3.util.ImplicitConversions.intToUInt
-import chisel3.util._
+import chisel3.util.{circt, _}
 import chisel3.dontTouch
 /** Receives an incoming atom and replicates it across num interfaces
  *
@@ -222,7 +221,7 @@ object GenDistributor extends App
 
 
   //
-  //  ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
+//    ChiselStage.emitSystemVerilogFile(new ComboDistributor[UInt](UInt(8.W),4), Array.empty, baseArguments)
   emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
 
 }
