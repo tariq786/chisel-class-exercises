@@ -17,6 +17,8 @@ class TestCrossbar extends AnyFreeSpec with ChiselScalatestTester {
             c.in(p).initSource().setSourceClock(c.clock)
             c.out(p).initSink().setSinkClock(c.clock)
             c.dest(p).poke(1 << ((p + 2) % 4))
+            println(s"p = ${p}")
+            println(s"dest = ${1 << ((p + 2) % 4)}")
           }
 
           fork {

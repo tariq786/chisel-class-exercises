@@ -11,7 +11,7 @@ import scala.util.Random
 class TestDistributor extends AnyFreeSpec with ChiselScalatestTester with Formal {
   "complete with full throughput" in {
     val ports = 4
-    test(Distributor("reg", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(Distributor("reg2", UInt(8.W), ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
         // first test with all output ports valid
         c.in.valid.poke(1)

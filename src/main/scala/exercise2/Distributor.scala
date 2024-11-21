@@ -199,7 +199,35 @@ class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype
 
 } //end of FullDistributor class
 
+class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
 
+  val RData = Reg(dtype)
+  val RDest = RegInit(0.U(num.W))
+  val nDest = Wire(Vec(num,Bool())) // vs Wire(UInt(num.W)) ?????
+
+  RData := Mux(in.fire,in.bits,RData)
+  RDest := Mux(in.fire,dest,nDest.asUInt)
+
+  //Defaults
+  for(i <- 0 until  num) {
+    out(i).valid := 0.B
+    out(i).bits := 0.U
+    }
+
+
+
+  for(i <- 0 until  num) {
+    out(i).valid := RDest(i)
+    out(i).bits := RData
+    when(out(i).ready) { //embedding out(i).ready inside when(Rdest(i)) or not????
+      nDest(i) := ~RDest(i)  //cannot use Rdest as you will keep inverting it. Needs a different logic
+      printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
+      out(i).valid := 0.B
+    }
+  }
+  in.ready := (RDest === 0.U)
+
+}
 
 
 object Distributor {
@@ -207,11 +235,12 @@ object Distributor {
     imp match {
       case "combo" => new ComboDistributor(dtype, num)
       case "full" => new FullDistributor(dtype, num)
+      case "reg2" => new RegDistributor2(dtype, num)
       case _ => new RegDistributor(dtype, num)
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("full")
+  def getImpTypes : Seq[String] = Seq("reg2")
 }
 
 
@@ -222,6 +251,6 @@ object GenDistributor extends App
 
   //
 //    ChiselStage.emitSystemVerilogFile(new ComboDistributor[UInt](UInt(8.W),4), Array.empty, baseArguments)
-  emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
+//  emitVerilog(new ComboDistributor[UInt](UInt(8.W),4))    //use sbt run from the command line to get verilog
 
 }
