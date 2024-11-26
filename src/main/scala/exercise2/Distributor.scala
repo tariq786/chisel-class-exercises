@@ -1,8 +1,7 @@
 package exercise2
-import chisel3._
+import chisel3.{VecInit, dontTouch, _}
 import chisel3.util.ImplicitConversions.intToUInt
 import chisel3.util.{circt, _}
-import chisel3.dontTouch
 /** Receives an incoming atom and replicates it across num interfaces
  *
  * Abstract base class allows for multiple implementations.
@@ -201,33 +200,55 @@ class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype
 
 class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
 
-  val RData = Reg(dtype)
-  val RDest = RegInit(0.U(num.W))
-  val nDest = Wire(Vec(num,Bool())) // vs Wire(UInt(num.W)) ?????
+  val RData  = Reg(dtype)
+  val RDest  = RegInit(0.U(num.W))
+  val nDest  = Wire(Vec(num,Bool())) // vs Wire(UInt(num.W)) ?????
+
 
   RData := Mux(in.fire,in.bits,RData)
   RDest := Mux(in.fire,dest,nDest.asUInt)
 
   //Defaults
-  for(i <- 0 until  num) {
-    out(i).valid := 0.B
-    out(i).bits := 0.U
-    }
-
-
+  nDest := RDest.asBools
 
   for(i <- 0 until  num) {
     out(i).valid := RDest(i)
     out(i).bits := RData
-    when(out(i).ready) { //embedding out(i).ready inside when(Rdest(i)) or not????
-      nDest(i) := ~RDest(i)  //cannot use Rdest as you will keep inverting it. Needs a different logic
-      printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
-      out(i).valid := 0.B
+        when(out(i).ready) {
+        nDest(i) := 0.B //or ~out(i).ready
+        // printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
     }
   }
-  in.ready := (RDest === 0.U)
+  in.ready := (RDest === 0.U) || (nDest.asUInt === 0.U)
 
-}
+} //end of RegDistributor2 Class
+
+class ComboDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
+
+  //Q1) Rationale??
+  val allReadyVec = RegInit(VecInit(Seq.fill(num)(0.B))) //Q2) can wire work as well?
+
+  //Q3) why out is giving error reference not fully initialized,
+  for(i <- 0 until num){
+    out(i).valid := 0.B
+    out(i).bits := 0.U
+  }
+
+  for(i <- 0 until num){
+    when( dest(i) && in.valid ){
+      out(i).valid := 1.B
+      out(i).bits := in.bits
+      when(out(i).ready){
+        allReadyVec(i) := 1.B
+      }
+    }
+  }
+
+  in.ready := allReadyVec.asUInt === dest
+
+
+
+}//end of class
 
 
 object Distributor {
@@ -236,6 +257,7 @@ object Distributor {
       case "combo" => new ComboDistributor(dtype, num)
       case "full" => new FullDistributor(dtype, num)
       case "reg2" => new RegDistributor2(dtype, num)
+      case "combo2" => new ComboDistributor2(dtype, num)
       case _ => new RegDistributor(dtype, num)
     }
   }
