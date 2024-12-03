@@ -183,7 +183,7 @@ class ComboDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtyp
 class FullDistributor[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num)
 {
   //instantiate Combo Distributor
-  val combo = Module(new ComboDistributor(dtype,num))
+  val combo = Module(new ComboDistributor2(dtype,num))
   combo.in  <> in
   combo.dest <> dest
 
@@ -203,7 +203,9 @@ class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype
   val RData  = Reg(dtype)
   val RDest  = RegInit(0.U(num.W))
   val nDest  = Wire(Vec(num,Bool())) // vs Wire(UInt(num.W)) ?????
-
+  //    nDest := VecInit(Seq.fill(num)(1.B)) //if this line is used instead of 212
+                                            //then nDest defaults to all ones and does not
+                                           //track RDest, which causes Test Failure
 
   RData := Mux(in.fire,in.bits,RData)
   RDest := Mux(in.fire,dest,nDest.asUInt)
@@ -215,7 +217,7 @@ class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype
     out(i).valid := RDest(i)
     out(i).bits := RData
         when(out(i).ready) {
-        nDest(i) := 0.B //or ~out(i).ready
+        nDest(i) := 0.B
         // printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
     }
   }
@@ -225,26 +227,31 @@ class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype
 
 class ComboDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype, num) {
 
-  //Q1) Rationale??
-  val allReadyVec = RegInit(VecInit(Seq.fill(num)(0.B))) //Q2) can wire work as well?
-
-  //Q3) why out is giving error reference not fully initialized,
+  val allReadyVec = RegInit(VecInit(Seq.fill(num)(0.B))) //Q) can wire work as well? NO because it
+                                                          //does not store value across clock cycles
   for(i <- 0 until num){
-    out(i).valid := 0.B
-    out(i).bits := 0.U
-  }
-
-  for(i <- 0 until num){
-    when( dest(i) && in.valid ){
-      out(i).valid := 1.B
+      out(i).valid := dest(i)
       out(i).bits := in.bits
       when(out(i).ready){
-        allReadyVec(i) := 1.B
+       allReadyVec(i) := 1.B
+        //out(i).valid := 0.B //valid cannot be made 0 here because then it would be set and unset at the same time
+                             //To make valid 0, it should be done when allReadyVec(i) is 1 as shown below
       }
+    }
+
+  for(i <- 0 until num){
+    when(allReadyVec(i)){
+      out(i).valid := 0.B
     }
   }
 
-  in.ready := allReadyVec.asUInt === dest
+  in.ready := (allReadyVec.asUInt === dest)
+
+  //Do the following so in.ready is set to zero in the next clock cycle and new transaction can be
+  //accepted.
+  when(in.ready){
+    allReadyVec := Seq.fill(num)(0.B)
+  }
 
 
 
@@ -262,7 +269,7 @@ object Distributor {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq("reg2")
+  def getImpTypes : Seq[String] = Seq("full")
 }
 
 

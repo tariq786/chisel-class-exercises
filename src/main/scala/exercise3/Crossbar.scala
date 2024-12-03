@@ -1,9 +1,8 @@
 package exercise3
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.{PriorityEncoder, _}
 import exercise2.{ComboDistributor, Distributor, RegDistributor}
-import chisel3.dontTouch
 
 abstract class Crossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) extends Module {
   val in = IO(Vec(numIn, Flipped(Decoupled(dtype))))
@@ -67,15 +66,69 @@ val st = for (i <- 0 until numOut) yield Module(new Station[D](dtype,numIn,numOu
 
 } //end of class RingCrossbar
 
+class BanyanCrossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) extends Crossbar(dtype, numIn, numOut) {
+
+//constructing a 4x4 cross bar using
+// 1) N/2 SEs and
+// 2) two networks of N/2*N/2
+
+val se = for(i <-0 until(numOut)) yield Module(new DistributorCrossbar(dtype, 2,2))
+
+    //inputs
+
+    val Dest0 = PriorityEncoder(dest(0)).asBools
+    val Dest1 = PriorityEncoder(dest(1)).asBools
+    val Dest2 = PriorityEncoder(dest(2)).asBools
+    val Dest3 = PriorityEncoder(dest(3)).asBools
+
+    se(0).in(0)   <> in(0)
+    se(0).in(1)   <> in(1)
+    se(0).dest(0) <> Mux(Dest0(1),2.U,1.U) //goes with in(0)
+    se(0).dest(1) <> Mux(Dest1(1),2.U,1.U) //goes with in(1)
+
+    se(1).in(0)   <> in(2)
+    se(1).in(1)   <> in(3)
+    se(1).dest(0) <> Mux(Dest2(1),2.U,1.U) //goes with in(2)
+    se(1).dest(1) <> Mux(Dest3(1),2.U,1.U) //goes with in(3)
+
+    //middle
+
+    se(2).dest(0) <> Mux(se(0).in(0).ready,Mux(Dest0(0),2.U,1.U),Mux(Dest1(0),2.U,1.U))
+    se(2).dest(1) <> Mux(se(1).in(0).ready,Mux(Dest2(0),2.U,1.U),Mux(Dest3(0),2.U,1.U))
+
+    se(3).dest(0) <> Mux(se(0).in(0).ready,Mux(Dest0(0),2.U,1.U),Mux(Dest1(0),2.U,1.U))
+    se(3).dest(1) <> Mux(se(1).in(0).ready,Mux(Dest2(0),2.U,1.U),Mux(Dest3(0),2.U,1.U))
+
+    se(0).out(0) <> se(2).in(0)
+    se(0).out(1) <> se(3).in(0)
+
+    se(1).out(0) <> se(2).in(1)
+    se(1).out(1) <> se(3).in(1)
+
+
+    //outputs
+
+    se(2).out(0) <> out(0)
+    se(2).out(1) <> out(1)
+    se(3).out(0) <> out(2)
+    se(3).out(1) <> out(3)
+
+
+} //end of class BanyanCrossbar
+
+
+
+
 object Crossbar {
   def apply[D <: Data](imp : String, dtype : D, numIn : Int, numOut : Int) : Crossbar[D] = {
     imp match {
       case "ring" => new RingCrossbar(dtype, numIn,numOut)
+      case "banyan" => new BanyanCrossbar(dtype, numIn,numOut)
       case _ => new DistributorCrossbar(dtype, numIn, numOut)
     }
   }
 
-  def getImpTypes : Seq[String] = Seq(/*"distributor", */"ring"/*, "banyan"*/)
+  def getImpTypes : Seq[String] = Seq(/*"distributor", "ring", */"banyan")
 }
 
 object GenCrossbar extends App
