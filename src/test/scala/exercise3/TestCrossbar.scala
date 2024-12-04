@@ -5,7 +5,9 @@ import chisel3.util._
 import chiseltest._
 import org.scalatest.freespec.AnyFreeSpec
 
+import scala.collection.mutable
 import scala.util.Random
+import scala.collection.mutable.Set
 
 class TestCrossbar extends AnyFreeSpec with ChiselScalatestTester {
   "test independent paths" in {
@@ -65,6 +67,69 @@ class TestCrossbar extends AnyFreeSpec with ChiselScalatestTester {
             }
           }
         }
+      }
+    }
+  }
+
+  "test broadcasting" in {
+    val ports = 4
+    val tokenCount = 10
+    val tokens = for (i <- 0 until ports) yield Seq.range(i*tokenCount, (i+1)*tokenCount)
+    val tokenTx = new Array[Int](ports)
+    val tokenRx = new Array[Set[BigInt]](ports)
+    var done = false
+
+    test(Crossbar("dist", UInt(8.W), ports, ports)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      c => {
+        for (p <- 0 until ports) {
+          tokenTx(p) = 0
+          tokenRx(p) = new mutable.HashSet[BigInt]()
+        }
+
+        while (!done) {
+          // check output
+          done = true
+
+          for (p <- 0 until ports) {
+            c.out(p).ready.poke(1)
+
+            if (c.out(p).valid.peekBoolean()) {
+              tokenRx(p).add(c.out(p).bits.peekInt())
+            }
+            if (tokenRx(p).size < tokenCount*ports) done = false
+          }
+
+
+          // send tokens
+          for (p <- 0 until ports) {
+            if (tokenTx(p) < tokenCount) {
+              c.dest(p).poke(((1 << ports)-1).U)
+              c.in(p).valid.poke(1)
+              c.in(p).bits.poke(tokens(p)(tokenTx(p)))
+            }
+
+            if (c.in(p).ready.peekBoolean()) {
+              tokenTx(p) += 1
+            }
+          }
+
+          c.clock.step()
+        }
+
+        println(f"Stimulus complete")
+        val completeSet = new mutable.HashSet[BigInt]()
+        for (s <- tokens)
+          completeSet.addAll(s.map(BigInt(_)))
+
+        for (p <- 0 until ports) {
+          if (!completeSet.equals(tokenRx(p))) {
+            val missing = completeSet.diff(tokenRx(p))
+            println(s"Output port ${p} missing tokens ${missing}")
+            assert(false, s"Comparing tokens for port ${p}")
+          }
+        }
+
+        c.clock.step(10)
       }
     }
   }
