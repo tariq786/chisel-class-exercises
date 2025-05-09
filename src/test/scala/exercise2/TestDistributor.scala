@@ -1,9 +1,8 @@
 package exercise2
 
-import chiseltest._
 import chisel3._
+import chiseltest._
 import chiseltest.formal._
-import org.scalatest.Ignore
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.util.Random

@@ -214,14 +214,18 @@ class RegDistributor2[D <: Data](dtype : D, num : Int) extends Distributor(dtype
   nDest := RDest.asBools
 
   for(i <- 0 until  num) {
+    printf(p"Inside loop \n")
     out(i).valid := RDest(i)
     out(i).bits := RData
         when(out(i).ready) {
+          printf(p"Inside when \n")
         nDest(i) := 0.B
-        // printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
+        printf(p"Value of nDest(${i}) = ${nDest(i)} at index  = $i \n")
     }
   }
   in.ready := (RDest === 0.U) || (nDest.asUInt === 0.U)
+
+
 
 } //end of RegDistributor2 Class
 

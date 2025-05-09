@@ -8,3 +8,5 @@ target/
 test_run_dir/
 .idea
 .bsp/
+*.sv
+genrtl/

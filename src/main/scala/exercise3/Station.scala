@@ -17,18 +17,18 @@ class Station [D <: Data] (dtype : D, numIn : Int, numOut : Int, stationID: Int)
   val ringDataOut = IO(Decoupled(new Station_Data(dtype,numOut)))
 
 //  println(s"inside station class line 19")
-  //Instantiate RegDistributor with two output ports
+  //Instantiate RegDistributor with two output ports, one for data exiting the ring and one that continues in the ring
   val regD = Module (new RegDistributor(new Station_Data(dtype,numOut),2))
-  //Instantiate RRArbiter which has 2 inputs
+  //Instantiate RRArbiter which has 2 inputs, one for new data `in(i)` and one for output of RegD that continues in the ring
   val arb = Module(new RRArbiter(new Station_Data(dtype,numOut), 2))
-  //Instantiate One Entry Queue
+  //Instantiate One Entry Queue to break the loop
   val queue = Module(new Queue(new Station_Data(dtype,numOut), 1))
 
   val reg_dest = Wire(Vec(2,Bool()))
-  reg_dest(0) := ringDataIn.bits.sdest(stationID) //decides whether data exits and/or continues in the ring
-  regD.dest := reg_dest.asUInt
+  reg_dest(0) := ringDataIn.bits.sdest(stationID) //decides match: whether data exits and/or continues in the ring
+  regD.dest := reg_dest.asUInt  //whether regDistributor chooses output, ring or both
 
-  //Doing ringDataIn.bits.sdest(stationID) := 0.B
+  //Doing ringDataIn.bits.sdest(stationID) := 0.B i.e., data has reached its destination
   val rdi_sdest = ringDataIn.bits.sdest.asBools
   val rdo_sdest = Wire(Vec(numOut,Bool()))
   for(i <- 0 until numOut)
@@ -45,7 +45,7 @@ class Station [D <: Data] (dtype : D, numIn : Int, numOut : Int, stationID: Int)
   regD.out(1) <> arb.io.in(0)
   arb.io.in(0).bits.sdest := rdo_sdest.asUInt   //override bulk connect
 
-  arb.io.in(1).bits.sdest := dest
+  arb.io.in(1).bits.sdest := dest   //from in(i)
   arb.io.in(1).bits.sData := in.bits
   arb.io.in(1).valid := in.valid
   in.ready := arb.io.in(1).ready //you assign to outputs

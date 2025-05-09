@@ -1,9 +1,10 @@
 package exercise3
 
 import chisel3._
-import chisel3.util.{PriorityEncoder, _}
-import exercise2.{ComboDistributor, Distributor, RegDistributor}
+import chisel3.util._
+import exercise2.RegDistributor
 
+//dest(x) is valid with in(x).valid
 abstract class Crossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) extends Module {
   val in = IO(Vec(numIn, Flipped(Decoupled(dtype))))
   val dest = IO(Input(Vec(numIn, UInt(numOut.W)))) //corresponds to every in, so { in(0) => dest(0)}, {in(1) => dest(1)}
@@ -68,14 +69,29 @@ val st = for (i <- 0 until numOut) yield Module(new Station[D](dtype,numIn,numOu
 
 class BanyanCrossbar[D <: Data](dtype : D, numIn : Int, numOut : Int) extends Crossbar(dtype, numIn, numOut) {
 
-//constructing a 4x4 cross bar using
-// 1) N/2 SEs and
-// 2) two networks of N/2*N/2
+//constructing For example N4 =  8x8 cross bar using (assumes numIn == numOut)
+// 1) Instantiating N SEs and
+// 2) Instantiating 2 Banyan networks of N/2
+// 3) connect 1) and 2)
 
-val se = for(i <-0 until(numOut)) yield Module(new DistributorCrossbar(dtype, 2,2))
+  //assume numIn = NumOut and power of 2
 
-    //inputs
+  //Instantiate basic SE (2x2 Xbar) for the first stage
+  val se00 = for(i <-0 until(numOut)) yield Module(new DistributorCrossbar(dtype, 2,2))
 
+  val se10 = for(i <-0 until(numOut)) yield Module(new DistributorCrossbar(dtype, 2,2))
+
+  val se20 = for(i <-0 until(numOut >> 1)) yield Module(new DistributorCrossbar(dtype, 2,2))
+
+  val se21 = for(i <-0 until(numOut >> 1)) yield Module(new DistributorCrossbar(dtype, 2,2))
+
+
+
+  //inputs
+
+
+
+  /*
     val Dest0 = PriorityEncoder(dest(0)).asBools
     val Dest1 = PriorityEncoder(dest(1)).asBools
     val Dest2 = PriorityEncoder(dest(2)).asBools
@@ -112,7 +128,7 @@ val se = for(i <-0 until(numOut)) yield Module(new DistributorCrossbar(dtype, 2,
     se(2).out(1) <> out(1)
     se(3).out(0) <> out(2)
     se(3).out(1) <> out(3)
-
+*/
 
 } //end of class BanyanCrossbar
 
@@ -128,7 +144,7 @@ object Crossbar {
     }
   }
 
-  def getImpTypes : Seq[String] = Seq(/*"distributor", "ring", */"banyan")
+  def getImpTypes : Seq[String] = Seq("distributor"/*, "ring" , "banyan"*/)
 }
 
 object GenCrossbar extends App
@@ -137,7 +153,7 @@ object GenCrossbar extends App
 
 
   //
-  //  ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
- // emitVerilog(new DistributorCrossbar[UInt](UInt(8.W),3,2))    //use sbt run from the command line to get verilog
+//   ChiselStage.emitSystemVerilogFile(new Exercise4, Array.empty, baseArguments)
+// emitVerilog(new DistributorCrossbar[UInt](UInt(8.W),3,2))    //use sbt run from the command line to get verilog
 
 }
