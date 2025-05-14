@@ -4,9 +4,10 @@
 *.fir
 *.v
 project/
+.bsp/
 target/
 test_run_dir/
-.idea
-.bsp/
+.idea/
 *.sv
 genrtl/
+dumps/

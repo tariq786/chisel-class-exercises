@@ -8,6 +8,8 @@ class AxiInterfaceBits(width: Int) extends Bundle{
   val tdata = UInt((width*8).W)
   val tkeep = UInt(width.W)
   val tlast = Bool()
+
+  def getBusWidth = width
 }
 
 //converts inWidth to outWidth (inWidth could be smaller (for Upsize) or greater (Downsize) than outWidth)
@@ -37,26 +39,52 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
   val registerArray = Reg(Vec(ratio, UInt((inWidth*8).W)))  //to save each incoming token in.data which is inWidth*8 bits
   val keepArray     = Reg(Vec(ratio, UInt(inWidth.W)))      //to save each incoming in.keep which is inWidth bit. If inWidth=1, in.keep is 1 bit
   val ctr = RegInit(0.U(log2Ceil(ratio).W)) //to keep track of incoming items
+  val tlastSeen = RegInit(Bool(),0.B)
+  val txDone = RegInit(Bool(),0.B)
 
   //defaults
   io.out.valid := false.B
   io.out.bits.tdata := 0.U
   io.out.bits.tkeep := 0.U
   io.out.bits.tlast := false.B
-
-  val tlastSeen = RegInit(Bool(),0.B)
-
-  io.in.ready := !tlastSeen //(ctr =/= ratio.U) //CHECK CHECK CHECK
+  io.in.ready := true.B
 
 
+//  io.in.ready := !tlastSeen //(ctr =/= ratio.U) //CHECK CHECK CHECK
 
-    when(io.in.fire && (!io.in.bits.tlast) ) {
+
+
+    when(io.in.fire && (!io.in.bits.tlast) && (ctr < (ratio.U) )) {
       registerArray(ctr) := io.in.bits.tdata        //0->a, 1->b, 2->c, 3->d
       keepArray(ctr) := io.in.bits.tkeep
       ctr := ctr + 1.U
 //      printf(p"\t Inside fire ratio=$ratio, ctr=$ctr \n")
     }
 
+    when(ctr === ratio.U - 1.U){
+
+      txDone := true.B
+    }
+
+    when( txDone )
+    {
+      io.out.valid := txDone
+      when(io.out.ready)
+      {
+        io.out.bits.tdata := Cat(registerArray.reverse)
+        io.out.bits.tkeep := Cat(keepArray.reverse)
+      }
+
+      //reset registerArray and keepArray from index 1 as you are reading into
+      // the registerArray[0] in the above thread
+
+      for( i <-1 until ratio )
+      {
+        registerArray(i) := 0.U
+        keepArray(i) := 0.U
+      }
+    txDone := ~txDone
+  }
 
   when(io.in.bits.tlast && io.in.fire) {
     tlastSeen := true.B
