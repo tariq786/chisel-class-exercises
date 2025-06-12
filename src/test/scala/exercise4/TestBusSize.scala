@@ -185,9 +185,10 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
           val pktIn = Seq.range(1, 20)
 
           fork {
-            AxiBusUtil.sendAxiPacket(c, c.io.in, pktIn)
+              AxiBusUtil.sendAxiPacket(c, c.io.in, pktIn)
           }.fork {
             val expPacket = AxiBusUtil.receiveAxiPacket(c, c.io.out)
+            println(s"expPacket = ${expPacket}")
             assert(expPacket.equals(pktIn))
           }.join()
 
