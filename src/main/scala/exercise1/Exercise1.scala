@@ -18,6 +18,12 @@ class Exercise1 extends Module {
     val dataIn = Flipped(Decoupled(UInt(8.W)))
     val dataOut = Decoupled(UInt(16.W))
   })
+
+  //Defaults
+  io.dataIn.ready := false.B
+  io.dataOut.bits := 0.U
+  io.dataOut.valid := false.B
+
   val mult = Module(new Multiplier(8))
   val rep = Module(new Exercise1Replicate(8))
 
@@ -38,4 +44,10 @@ class Exercise1Replicate(width : Int) extends Module {
     val dataOut = Vec(2, Decoupled(UInt(width.W)))
   })
   // Write your code to replicate data on dataIn across both dataOut interfaces
+  //Defaults
+  io.dataIn.ready := false.B
+  io.dataOut(0).valid := false.B
+  io.dataOut(1).valid := false.B
+  io.dataOut(0).bits := 0.U
+  io.dataOut(1).bits := 0.U
 }

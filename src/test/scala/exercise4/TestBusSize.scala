@@ -178,7 +178,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
 
   "Downsize Packet" in {
     for (inWidth <- Seq(8, 4, 2)) {
-      test(new BusDownsize(inWidth, 1)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      test(new BusDownsize(inWidth, 2)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
 
@@ -202,16 +202,16 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   "Downsize" in {
     test(new BusDownsize(4, 1)).withAnnotations(Seq(WriteVcdAnnotation)) {
       c => {
-        //Transaction 1 with 4 bytes, all valid
+        //Transaction1 with 4 bytes, all valid
 
         c.io.in.valid.poke(1)
         c.io.in.bits.tdata.poke("haabbccdd".U)
         c.io.in.bits.tkeep.poke("b1111".U)
         c.io.in.bits.tlast.poke(1)
         c.io.in.ready.expect(true) // Verify DUT is ready
-        c.clock.step()
+        c.clock.step(1)
 
-        c.io.in.bits.tlast.poke(0)
+        //c.io.in.bits.tlast.poke(0)
         c.io.in.valid.poke(0)
         c.io.in.ready.expect(false)
         c.io.out.valid.expect(true)
