@@ -113,6 +113,19 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
 
 //Example of BusDownsize, if inWidth = 8, outWidth = 2,
 
+class WrapBusDownsize(inWidth: Int, outWidth:Int) extends Module {
+  val io = IO(new Bundle {
+    val in = Flipped(Decoupled(new AxiInterfaceBits(inWidth))) // Input bus
+    val out = Decoupled(new AxiInterfaceBits(outWidth)) // Output bus
+  })
+
+  val downsize = Module(new BusDownsize(inWidth, outWidth))
+  val outq = Module(new Queue(new AxiInterfaceBits(outWidth), 2)) // Output queue of depth 2
+
+  downsize.io.in <> io.in
+  outq.io.enq <> downsize.io.out
+  io.out <> outq.io.deq
+}
 
 class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
   val io = IO(new Bundle {
@@ -128,7 +141,8 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
 
   val ratio = inWidth / outWidth
 
-  val ctr = RegInit(0.U(inWidth.W))             //to keep track of outgoing items
+  val ctr = RegInit(0.U(log2Ceil(ratio).W))  //to keep track of how many outgoing items, if (8,2) then ratio=4
+  val txCtr = RegInit(0.U(16.W)) //to keep track of the number of flits in a transaction. Maximum can be 2**16-1
   val saveOutReg = RegInit(0.U((inWidth * 8).W))   //to save incoming data inWidth bytes
   val saveOutKeep = RegInit(0.U(inWidth.W))        //to save incoming keep inwidth bits
   val byteOutWire = Wire(UInt((outWidth * 8).W))   //that holds outwidth bytes chunk of inWidth bytes
@@ -146,13 +160,14 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
   keepOutWire := 0.U
 
 
-  io.in.ready := !txDone || (txDone && io.out.ready) //|| !io.in.bits.tlast //true.B //!tlastSeen //&& io.in.valid // Discuss
+  io.in.ready := !txDone //|| (txDone && io.out.ready) //|| !io.in.bits.tlast //true.B //!tlastSeen //&& io.in.valid // Discuss
 
-  //Case1: tlast=false
-  when(io.in.fire && !io.in.bits.tlast) {
+  when(io.in.fire) {
     saveOutReg := io.in.bits.tdata
     saveOutKeep := io.in.bits.tkeep
     txDone := true.B
+//    txCtr := txCtr + 1.U
+    tlastSeen := io.in.bits.tlast
   }
 
   //in the next cycle, ???get the tx out WHILE getting the new tx in
@@ -167,35 +182,18 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
     saveOutKeep := saveOutKeep >> (outWidth)
 
     when(io.out.ready) {
-      txDone := ~txDone
-    }
-  }
+      ctr := ctr  + 1.U
+      when(ctr === (ratio.U -1.U) ) { //Double check //adjust if tlast is seen (DISCUSS)
+        ctr := 0.U
+//        txCtr := txCtr - 1.U
+        txDone := ~txDone
 
-  //Case2: tlast=true
-  when(io.in.fire && io.in.bits.tlast) {
-    saveOutReg := io.in.bits.tdata
-    saveOutKeep := io.in.bits.tkeep
-    tlastSeen := true.B
-  }
-
-  when(tlastSeen) {
-    io.out.valid := true.B
-    byteOutWire := saveOutReg(outWidth*8-1, 0)
-    keepOutWire := saveOutKeep(outWidth-1,0)
-    //    printf(p"\t Inside, saveReg=$saveReg, byteReg=$byteWire, keepReg=$keepWire \n")
-    io.out.bits.tdata := byteOutWire
-    saveOutReg := saveOutReg >> (outWidth * 8)
-    io.out.bits.tkeep := keepOutWire
-    saveOutKeep := saveOutKeep >> (outWidth)
-
-    //    for (i <-0 until(ratio)){ //not the parallel way
-    when(io.out.ready) {
-        io.out.bits.tlast := true.B
-        tlastSeen := false.B
-
+        when(tlastSeen ){
+          io.out.bits.tlast := true.B
+           }
       }
-  }
-
+    }
+    }
 
 } //end of BusDownSize class
 
