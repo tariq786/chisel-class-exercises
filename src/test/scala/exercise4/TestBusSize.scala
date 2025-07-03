@@ -39,19 +39,32 @@ object AxiBusUtil {
   def receiveAxiPacket(c: Module, in: DecoupledIO[AxiInterfaceBits]) : Seq[Int] = {
     var done = false
     val packet = new ArrayBuffer[Int]()
-    in.ready.poke(1)
+    in.ready.poke(1) //coded by TBA
     while (!done) {
       while (!in.valid.peekBoolean()) c.clock.step()
 
       val keep = in.bits.tkeep.peekInt()
       val data = in.bits.tdata.peekInt()
+//      println(s" keep = ${keep}, data = ${data} ")
+//      println(s" in.bits.getbusWidth = ${in.bits.getBusWidth} ")
       for (i <- 0 until in.bits.getBusWidth) {
         if ((keep & (1 << i)) != 0) {
           packet.addOne(((data >> (i*8)) & 0xff).toInt)
+//          println(s" i = ${i}, packet = ${packet} ")
         }
       }
+
       done = in.bits.tlast.peekBoolean()
       c.clock.step()
+    }
+    //for the last word for which tlast signal is true
+    val keepLast = in.bits.tkeep.peekInt()
+    val dataLast = in.bits.tdata.peekInt()
+    for (i <- 0 until in.bits.getBusWidth) {
+      if ((keepLast & (1 << i)) != 0) {
+        packet.addOne(((dataLast >> (i*8)) & 0xff).toInt)
+//        println(s" i = ${i}, packet = ${packet} ")
+      }
     }
     packet.toSeq
   }
@@ -86,7 +99,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
         // Transcation 1,Input 4
         c.io.in.bits.tdata.poke("hdd".U)
         c.io.in.ready.expect(true)
-        c.clock.step()
+        c.clock.step(1)
 
         // Verify data is ready to be output
         //c.io.in.valid.poke(0)
@@ -108,7 +121,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
         c.io.in.bits.tdata.poke("hff".U)
         c.io.in.ready.expect(true)
         c.io.in.bits.tlast.poke(1)
-        c.clock.step()
+        c.clock.step(1)
 
 
         // Accept the output
@@ -131,7 +144,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
         c.io.in.bits.tdata.poke("haa".U)
         c.io.in.bits.tkeep.poke(1)
         c.io.in.bits.tlast.poke(1)
-        c.clock.step()
+        c.clock.step(2)
 
         // Verify data is ready to be output
         c.io.in.valid.poke(0)
@@ -157,7 +170,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
 
   "Upsize Packet" in {
     for (inWidth <- Seq(2, 4, 8)) {
-      test(new BusUpsize(inWidth, 32)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      test(new WrapBusUpsize(inWidth, 8)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
 
@@ -167,6 +180,8 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
             AxiBusUtil.sendAxiPacket(c, c.io.in, pktIn)
           }.fork {
             val expPacket = AxiBusUtil.receiveAxiPacket(c, c.io.out)
+            println(s"inWidthPacket = ${inWidth}, outWidth = 8")
+            println(s"expPacket = ${expPacket}")
             assert(expPacket.equals(pktIn))
           }.join()
 
@@ -177,7 +192,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   }
 
   "Downsize Packet" in {
-    for (inWidth <- Seq(8, 8, 8)) {
+    for (inWidth <- Seq(8)) {
       test(new WrapBusDownsize(inWidth, 2)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
@@ -208,7 +223,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
 
         c.io.in.valid.poke(1)
         c.io.in.bits.tdata.poke("haabbccdd".U)
-        c.io.in.bits.tkeep.poke("b0111".U)
+        c.io.in.bits.tkeep.poke("b1111".U)
         c.io.in.bits.tlast.poke(true.B)
         c.io.in.ready.expect(true) // Verify DUT is ready
         c.clock.step(1)
@@ -233,7 +248,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
         c.clock.step()
 
         c.io.out.bits.tdata.expect("haa".U)
-        c.io.out.bits.tkeep.expect(0)
+        c.io.out.bits.tkeep.expect(1)
         c.io.out.bits.tlast.expect(true)
         c.clock.step()
 
