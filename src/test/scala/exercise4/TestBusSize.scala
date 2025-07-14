@@ -57,7 +57,7 @@ object AxiBusUtil {
       done = in.bits.tlast.peekBoolean()
       c.clock.step()
     }
-    //for the last word for which tlast signal is true
+   /* //for the last word for which tlast signal is true
     val keepLast = in.bits.tkeep.peekInt()
     val dataLast = in.bits.tdata.peekInt()
     for (i <- 0 until in.bits.getBusWidth) {
@@ -65,7 +65,7 @@ object AxiBusUtil {
         packet.addOne(((dataLast >> (i*8)) & 0xff).toInt)
 //        println(s" i = ${i}, packet = ${packet} ")
       }
-    }
+    }*/
     packet.toSeq
   }
 }
@@ -169,8 +169,8 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   }
 
   "Upsize Packet" in {
-    for (inWidth <- Seq(2, 4, 8)) {
-      test(new WrapBusUpsize(inWidth, 8)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    for (inWidth <- Seq(2,4,8)) {
+      test(new WrapBusUpsize(inWidth, 16)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
 
@@ -192,8 +192,8 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   }
 
   "Downsize Packet" in {
-    for (inWidth <- Seq(8)) {
-      test(new WrapBusDownsize(inWidth, 2)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    for (inWidth <- Seq(2,4,8)) {
+      test(new WrapBusDownsize(inWidth, 1)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
 

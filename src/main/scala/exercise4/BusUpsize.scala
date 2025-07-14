@@ -45,16 +45,17 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
   })
 
   require(
-    (inWidth <= outWidth && outWidth % inWidth == 0),
+    (inWidth < outWidth && outWidth % inWidth == 0),
     "For upsizing, outWidth must be a multiple of inWidth."
   )
 
   val ratio = outWidth / inWidth
 
   val registerArray = Reg(Vec(ratio, UInt((inWidth * 8).W))) //to save each incoming token's in.data which is inWidth*8 bits
-  val keepArray = Reg(Vec(ratio, UInt(inWidth.W))) //to save each incoming in.keep which is inWidth bit.
-  // If inWidth=1, in.keep is 1 bit
+  val keepArray     = Reg(Vec(ratio, UInt(inWidth.W))) //to save each incoming in.keep which is inWidth bit.
+  // If inWidth=1 (byte), in.keep is 1 bit
   val ctr = RegInit(0.U(log2Ceil(ratio).W)) //to keep track of incoming tokens in a tx
+
   val tlastSeen = RegInit(Bool(), 0.B)
   val txDone = RegInit(Bool(), 0.B)
 
@@ -66,63 +67,46 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
   io.in.ready := !txDone || (txDone && io.out.ready)
 
   when(io.in.fire ) {
-    registerArray(ctr) := io.in.bits.tdata //0->a, 1->b, 2->c, 3->d
+    registerArray(ctr) := io.in.bits.tdata //0->a,
+    // 1->b,
+    // 2->c,
     keepArray(ctr) := io.in.bits.tkeep
     ctr := ctr + 1.U
-    when( (ctr === ratio.U - 1.U) || io.in.bits.tlast) {
-      ctr := 0.U    //explicitly reset the counter to 0
-      txDone := true.B
-      tlastSeen := io.in.bits.tlast
+    when((ctr === ratio.U - 1.U) || io.in.bits.tlast) {
+      // ctr := 0.U    //explicitly reset the counter to 0
+      when(io.in.bits.tlast) {
+        tlastSeen := io.in.bits.tlast
+        txDone := io.in.bits.tlast
+      }.otherwise {
+        txDone := true.B
+      }
+      //      printf(p"\t Inside fire ratio=$ratio, ctr=$ctr \n")
     }
-
-    //      printf(p"\t Inside fire ratio=$ratio, ctr=$ctr \n")
   }
 
-
-  //in the next cycle, get the tx out and in the meanwhile keep reading new tx at the input
+ //in the next cycle, get the tx out and in the meanwhile keep reading new tx at the input
   when(txDone) {
     io.out.valid := txDone
     io.out.bits.tdata := Cat(registerArray.reverse)
     io.out.bits.tkeep := Cat(keepArray.reverse)
     when(io.out.ready) {
       for (i <- 0 until ratio) {
-//        registerArray(i) := 0.U
-        keepArray(i) := 0.U
+        when(i.U > ctr) { //if tlast came in the middle and ctr could not reach ratio-1 so restting the
+                          // remaining registers otherwise one will get 100F0E0D0C131211 instead of 00000000131211
+
+          registerArray(i) := 0.U
+          keepArray(i) := 0.U
+        }
       }
-       when(tlastSeen) {
-       io.out.bits.tlast :=  true.B
+      when(tlastSeen) {
+        io.out.bits.tlast :=  tlastSeen
+        txDone := false.B
+      }.elsewhen(!io.in.bits.tlast) {
+        tlastSeen := false.B
+        txDone := false.B
       }
-      txDone := false.B
     }
   }
-
-  //Case2: tlast = true. Since tlast can come anytime, so reset the ctr immediately.
-  /* when(io.in.bits.tlast && io.in.fire) {
-    tlastSeen := true.B
-    registerArray(ctr) := io.in.bits.tdata
-    keepArray(ctr) := io.in.bits.tkeep
-    ctr := 0.U
-    //    printf(p"\t Inside tlastSeen ratio=$ratio, ctr=$ctr \n")
-  }
-
-  when(tlastSeen) { //in the next cycle after tlastSeen
-    io.out.valid := tlastSeen
-    io.out.bits.tlast := tlastSeen
-    io.out.bits.tdata := Cat(registerArray.reverse)
-    io.out.bits.tkeep := Cat(keepArray.reverse)
-    when(io.out.ready) {
-      //reset registerArray and keepArray. In this cycle, valid is low !!!
-      for (i <- 0 until ratio) {
-        registerArray(i) := 0.U
-        keepArray(i) := 0.U
-      }
-
-      tlastSeen := ~tlastSeen
-    }
-
-  }
-*/
-
 } //end of BusUpsize class
 
 //Example of BusDownsize, if inWidth = 8, outWidth = 2,
@@ -148,7 +132,7 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
   })
 
   require(
-    ( (inWidth >= outWidth) && (inWidth % outWidth == 0) ),
+    ( (inWidth > outWidth) && (inWidth % outWidth == 0) ),
     "For downsizing, inWidth must be a multiple of outWidth."
   )
 
@@ -162,9 +146,8 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
   val keepOutWire = Wire(UInt(outWidth.W))        // that holds outwidth bits of inWidth bits
   val txDone = RegInit(Bool(), 0.B)           //that keeps track of when outgoing outWidth data is ready to be sent
   val tlastSeen = RegInit(Bool(), 0.B)        // Register that keeps track of incoming inWidth data tlast
+  val tlastCtr = RegInit(Bool(), 0.B) // Register that keeps track of tlast seen in the current transaction
 
-  val lastOutWord = RegInit(0.U((outWidth * 8).W)) //to save the last outWidth bytes of inWidth bytes
-  val lastOutKeep = RegInit(0.U(outWidth.W)) //to save the last outWidth bits of inWidth bits
 
   //defaults
   io.out.valid := false.B
@@ -175,24 +158,24 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
   keepOutWire := 0.U
 
 
-  io.in.ready := !txDone //|| (txDone && io.out.ready) //|| !io.in.bits.tlast //true.B //!tlastSeen //&& io.in.valid // Discuss
+  io.in.ready := !txDone || (txDone && io.out.ready) //|| !io.in.bits.tlast //true.B //!tlastSeen //&& io.in.valid // Discuss
 
-  when(io.in.fire && saveOutKeep === 1.U){
-    io.out.valid := saveOutKeep === 1.U //if saveOutKeep is 1, then we have a single byte to send
-    io.out.bits.tdata := lastOutWord
-    io.out.bits.tkeep := lastOutKeep
-    saveOutReg := io.in.bits.tdata    //new flit is coming in
-    saveOutKeep := io.in.bits.tkeep //new keep is coming in
+  when(io.in.fire) {
+    saveOutReg := io.in.bits.tdata(inWidth * 8 - 1, outWidth * 8)
+    saveOutKeep := io.in.bits.tkeep(inWidth - 1, outWidth)
     txDone := true.B
     tlastSeen := io.in.bits.tlast
-  }.elsewhen(io.in.fire) {
-    saveOutReg := io.in.bits.tdata
-    saveOutKeep := io.in.bits.tkeep
-    txDone := true.B
-    tlastSeen := io.in.bits.tlast
+    //send one outWidth bytes in this cycle right away
+    io.out.valid := true.B
+    io.out.bits.tdata := io.in.bits.tdata(outWidth * 8 - 1, 0) //get the first outWidth bytes
+    io.out.bits.tkeep := io.in.bits.tkeep(outWidth - 1, 0) //get the first outWidth bits
+    /*when(io.in.bits.tkeep === 1.U) {
+      io.out.bits.tlast := io.in.bits.tlast
+    }*/
+    ctr := ctr + 1.U
   }
 
-  //in the next cycle, ???get the tx out WHILE getting the new tx in
+  //in the next cycle,
   when(txDone) {
     io.out.valid := txDone
     byteOutWire := saveOutReg(outWidth*8 - 1, 0)
@@ -202,23 +185,45 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
     saveOutReg := saveOutReg >> (outWidth * 8)
     io.out.bits.tkeep := keepOutWire
     saveOutKeep := saveOutKeep >> (outWidth)
+    when(!tlastSeen) {ctr := ctr + 1.U}
     when(io.out.ready) {
-      when(saveOutKeep === 3.U && !tlastSeen ) { //Double check //adjust if tlast is seen (DISCUSS ???)
+      when(ctr === (ratio-1).U ) {
         txDone := ~txDone
-        lastOutWord := saveOutReg( 2*(outWidth * 8) - 1, outWidth*8) //get the first outWidth bytes
-        lastOutKeep := saveOutKeep( 2*(outWidth) - 1, outWidth) //get the first outWidth bits
-      }.elsewhen(saveOutKeep === 3.U && tlastSeen) { //if only one byte is left, then send it
-          io.out.bits.tlast := true.B
-         tlastSeen := false.B
-          }.elsewhen(saveOutKeep === 1.U) {
+      }.elsewhen(ctr === (ratio-1).U && tlastSeen) {
         txDone := ~txDone
-      }
+        io.out.bits.tlast := true.B
+        tlastSeen := false.B
+        }.elsewhen(tlastSeen) { //if tlast is seen, then send the last outWidth bytes
+        //send ctr number of outWidth bytes
+        when(ctr > 0.U) {
+          ctr := ctr - 1.U
         }
+        when(ctr === 0.U) {
+        io.out.bits.tlast := true.B
+        txDone := ~txDone
+        tlastSeen := false.B
+        }
+      }
     }
-
+  }
 
 } //end of BusDownSize class
 
 
+class BusDownsize2(inWidth: Int, outWidth: Int) extends Module {
+  val io = IO(new Bundle {
+    val in = Flipped(Decoupled(new AxiInterfaceBits(inWidth)))
+    val out = Decoupled(new AxiInterfaceBits(outWidth))
+  })
 
+  require(
+    ( (inWidth > outWidth) && (inWidth % outWidth == 0) ),
+    "For downsizing, inWidth must be a multiple of outWidth."
+  )
+
+  val ratio = inWidth / outWidth
+
+
+
+} //end of BusDownSize2 class
 
