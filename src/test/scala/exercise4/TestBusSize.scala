@@ -169,7 +169,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   }
 
   "Upsize Packet" in {
-    for (inWidth <- Seq(2,4,8)) {
+    for (inWidth <- Seq(1,2,4,8)) {
       test(new WrapBusUpsize(inWidth, 16)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
@@ -180,7 +180,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
             AxiBusUtil.sendAxiPacket(c, c.io.in, pktIn)
           }.fork {
             val expPacket = AxiBusUtil.receiveAxiPacket(c, c.io.out)
-            println(s"inWidthPacket = ${inWidth}, outWidth = 16")
+            println(s"inWidthPacket = ${inWidth}, outWidth = 8")
             println(s"expPacket = ${expPacket}")
             assert(expPacket.equals(pktIn))
           }.join()

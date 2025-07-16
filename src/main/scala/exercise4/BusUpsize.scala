@@ -82,13 +82,9 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
       keepArray(ctr) := io.in.bits.tkeep
       ctr := ctr + 1.U
       when((ctr === ratio.U - 1.U) || io.in.bits.tlast) {
-        // ctr := 0.U    //explicitly reset the counter to 0
-        when(io.in.bits.tlast) {
-          tlastSeen := io.in.bits.tlast
-          txDone := io.in.bits.tlast
-        }.otherwise {
-          txDone := true.B
-        }
+        // ctr := 0.U    //cannot set the counter to 0 when io.bits.tlast is asserted, because ctr might not be equal to ratio-1
+           tlastSeen := io.in.bits.tlast
+           txDone := true.B
         //      printf(p"\t Inside fire ratio=$ratio, ctr=$ctr \n")
       }
     }
@@ -98,6 +94,7 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
       io.out.valid := txDone
       io.out.bits.tdata := Cat(registerArray.reverse)
       io.out.bits.tkeep := Cat(keepArray.reverse)
+      io.out.bits.tlast := tlastSeen
       when(io.out.ready) {
         for (i <- 0 until ratio) {
           when(i.U > ctr) { //if tlast came in the middle and ctr could not reach ratio-1 so restting the
@@ -107,12 +104,11 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
             keepArray(i) := 0.U
           }
         }
-        when(tlastSeen) {
-          io.out.bits.tlast := tlastSeen
-          txDone := false.B
-        }.elsewhen(!io.in.bits.tlast) {
+
+      when(tlastSeen) {
           tlastSeen := false.B
-          txDone := false.B
+        }.elsewhen(!io.in.bits.tlast) {
+        txDone := false.B
         }
       }
     }
@@ -161,7 +157,6 @@ class BusDownsize(inWidth: Int, outWidth: Int) extends Module {
     val keepOutWire = Wire(UInt(outWidth.W)) // that holds outwidth bits of inWidth bits
     val txDone = RegInit(Bool(), 0.B) //that keeps track of when outgoing outWidth data is ready to be sent
     val tlastSeen = RegInit(Bool(), 0.B) // Register that keeps track of incoming inWidth data tlast
-    val tlastCtr = RegInit(Bool(), 0.B) // Register that keeps track of tlast seen in the current transaction
 
 
     //defaults
