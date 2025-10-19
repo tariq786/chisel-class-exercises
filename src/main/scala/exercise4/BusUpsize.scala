@@ -21,7 +21,7 @@ class AxiInterfaceBits(width: Int) extends Bundle {
 
 
 //Example of BusUpsize, if inWidth = 2, outWidth = 4, then save inputs into 2 registers, when
-// 4 bytes have been accumulated in a transaction , you assert valid output.
+// 4 bytes have been accumulated in a tran  saction , you assert valid output.
 //Corner case is if tlast is asserted, then you need to flush out the output no matter what.
 
 class WrapBusUpsize(inWidth: Int, outWidth:Int) extends Module {
@@ -105,10 +105,12 @@ class BusUpsize(inWidth: Int, outWidth: Int) extends Module {
           }
         }
 
-      when(tlastSeen) {
+        when(tlastSeen) {
           tlastSeen := false.B
+          txDone := false.B
+          ctr := 0.U
         }.elsewhen(!io.in.bits.tlast) {
-        txDone := false.B
+          txDone := false.B
         }
       }
     }

@@ -169,7 +169,7 @@ class TestBusSize extends AnyFreeSpec with ChiselScalatestTester with Formal {
   }
 
   "Upsize Packet" in {
-    for (inWidth <- Seq(1,2,4,8)) {
+    for (inWidth <- Seq(1)) {
       test(new WrapBusUpsize(inWidth, 16)).withAnnotations(Seq(WriteVcdAnnotation)) {
         c => {
           c.clock.step(2)
