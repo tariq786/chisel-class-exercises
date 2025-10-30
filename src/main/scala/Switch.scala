@@ -75,9 +75,19 @@ class LookUpTable extends Module {
       "h000000000003".U(48.W) -> 0x3.U(4.W) //port3
     )) }
 
+
+  val q = Module (new Queue(UInt(4.W),1))
+  q.io.enq.bits := io.out.bits.destPort
+  io.in.ready := q.io.enq.ready
+  q.io.enq.valid := io.in.valid
+
   //These two signals need to be out of above when(io.in.valid) block to be helpful.
-  io.out.valid := io.in.valid
+  /*io.out.valid := io.in.valid
   io.in.ready := io.out.ready
+*/
+  io.out.valid := q.io.deq.valid
+  io.out.bits.destPort := q.io.deq.bits
+  q.io.deq.ready := io.out.ready
 
 
 } //end of LookUpTable class
